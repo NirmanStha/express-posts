@@ -1,4 +1,11 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from "typeorm";
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  UpdateDateColumn,
+  CreateDateColumn,
+  ManyToOne,
+} from "typeorm";
 import { User } from "./user.entity";
 
 @Entity()
@@ -15,10 +22,10 @@ export class Post {
   @Column({ type: "simple-array" })
   filenames!: string[];
 
-  @Column()
+  @CreateDateColumn()
   createdAt!: Date;
 
-  @Column()
+  @UpdateDateColumn()
   updatedAt!: Date;
 
   @ManyToOne(() => User, (user) => user.posts, { onDelete: "CASCADE" })

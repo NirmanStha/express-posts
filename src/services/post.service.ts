@@ -27,6 +27,8 @@ export class PostService {
         "post.updatedAt",
         "user.id",
         "user.email",
+        "user.firstName",
+        "user.lastName",
       ])
       .getOne();
     if (!post) {
@@ -35,5 +37,14 @@ export class PostService {
     return post;
   }
 
-  static async editPost() {}
+  static async editPost(id: string, data: Partial<Post>) {
+    const post_id = parseInt(id);
+    const post = await repo.postRepo.findOne({ where: { id: post_id } });
+    if (!post) {
+      throw new CustomError("Post not found", 404);
+    }
+    await repo.postRepo.update(post_id, data);
+    const updatedPost = await repo.postRepo.findOne({ where: { id: post_id } });
+    return updatedPost;
+  }
 }

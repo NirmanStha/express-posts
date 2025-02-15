@@ -22,3 +22,7 @@ build/
 # OS files
 .DS_Store
 Thumbs.db
+
+./src/config/
+./src/uploads/
+src/uploads/
