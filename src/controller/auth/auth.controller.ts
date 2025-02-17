@@ -64,12 +64,13 @@ export class AuthController {
   }
   static async refreshToken(req: Request, res: Response, next: NextFunction) {
     try {
-      const token = req.params.token;
+      const token = req.body.refreshToken;
+      console.log(token);
       const newTokens = await UserService.refreshToken(token);
       res.status(200).json({
         status: "success",
         message: "token refreshed",
-        accessToken: newTokens,
+        data: newTokens,
       });
     } catch (error) {
       next(error);
