@@ -27,7 +27,22 @@ export class UserService {
     }
     return passwordHash.verify(password, hash);
   }
+  public static async refreshToken(token: string) {
+    if (!token) {
+      throw new CustomError("Token is required", 400);
+    }
 
+    const decoded: any = jwt.verify(token, "refresh_token");
+
+    const user = await repo.userRepo.findOne({
+      where: { id: decoded.id },
+    });
+    if (!user) {
+      throw new CustomError("User not found", 404);
+    }
+    const accessToken = this.createAccessToken(user);
+    return { accessToken };
+  }
   public static async register(
     data: Partial<User>,
     next: NextFunction

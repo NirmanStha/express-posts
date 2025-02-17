@@ -5,7 +5,9 @@ import { AppDataSource } from "../config/dataSource";
 import { CustomError } from "../helpers/customError";
 
 export class PostService {
-  static async createPost(data: Omit<Post, "id" | "createdAt" | "updatedAt">) {
+  static async createPost(
+    data: Omit<Post, "id" | "createdAt" | "updatedAt" | "comments">
+  ) {
     const post = repo.postRepo.create(data);
 
     await repo.postRepo.save(post);
@@ -38,13 +40,13 @@ export class PostService {
   }
 
   static async editPost(id: string, data: Partial<Post>) {
-    const post_id = parseInt(id);
-    const post = await repo.postRepo.findOne({ where: { id: post_id } });
+    const post = await repo.postRepo.findOne({ where: { id: id } });
     if (!post) {
       throw new CustomError("Post not found", 404);
     }
-    await repo.postRepo.update(post_id, data);
-    const updatedPost = await repo.postRepo.findOne({ where: { id: post_id } });
+
+    await repo.postRepo.update(id, data);
+    const updatedPost = await repo.postRepo.findOne({ where: { id: id } });
     return updatedPost;
   }
 }

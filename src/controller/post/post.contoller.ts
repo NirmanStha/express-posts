@@ -64,10 +64,11 @@ export class PostController {
       if (req.fileTypeError) {
         throw new CustomError("Invalid file format", 400);
       }
-      if (req.files) {
+      if (req.files && req.files.length > 0) {
         data.filenames = req.files.map((file: any) => file.filename);
       }
       const validatedData = postSchema.partial().parse(data);
+      console.log(validatedData, "this is validated data");
       const post = await PostService.editPost(post_id, validatedData);
       res.status(200).json({
         status: "success",
