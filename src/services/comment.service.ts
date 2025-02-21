@@ -1,4 +1,5 @@
 import repo from "../config/repo";
+import { User } from "../entities/user.entity";
 import { CustomError } from "../helpers/customError";
 import { omit } from "../helpers/omit";
 
@@ -29,7 +30,7 @@ export class CommentService {
     };
     return safeData;
   }
-  static async getComment(postId: string) {}
+
   static async getSingleComment(com_id: string) {
     const commentWithUser = await repo.comRepo.findOne({
       where: { id: com_id },
@@ -52,7 +53,7 @@ export class CommentService {
     };
     return safeData;
   }
-  static async updateComment(id: string, content: string, userId: string) {
+  static async updateComment(id: string, content: string, user: User) {
     const comment = await repo.comRepo.findOne({
       where: { id: id },
       relations: ["user"],
@@ -61,7 +62,7 @@ export class CommentService {
       throw new Error("Comment not found");
     }
     console.log(comment);
-    if (comment.user.id !== userId) {
+    if (comment.user.id !== user.id) {
       throw new CustomError(
         "You are not authorized to update this comment",
         403

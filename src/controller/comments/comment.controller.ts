@@ -27,16 +27,7 @@ export class CommentController {
       next(error);
     }
   }
-  static async index(req: Request, res: Response, next: NextFunction) {
-    try {
-      const { postId } = req.params;
 
-      // const comments = await CommentService.getComments(postId);
-      // res.status(200).json({ comments });
-    } catch (error) {
-      next(error);
-    }
-  }
   static async update(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
@@ -46,8 +37,8 @@ export class CommentController {
       if (!user) {
         throw new CustomError("Unauthorized", 401);
       }
-      console.log("conternt", content);
-      const comment = await CommentService.updateComment(id, content, user.id);
+
+      const comment = await CommentService.updateComment(id, content, user);
 
       res.status(200).json({
         status: "success",

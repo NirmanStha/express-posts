@@ -44,7 +44,7 @@ export class PostController {
     try {
       const id = req.params.id;
 
-      const post = await PostService.getUsersSpeciticPost(id);
+      const post = await PostService.getUsersSpecificPost(id);
 
       res.status(200).json({
         status: "success",
@@ -74,6 +74,18 @@ export class PostController {
         status: "success",
         message: "Post updated successfully",
         data: post,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+  //get all post
+  static async getPosts(req: any, res: Response, next: NextFunction) {
+    try {
+      const posts = await PostService.getAllPosts();
+      res.status(200).json({
+        status: "success",
+        data: posts,
       });
     } catch (error) {
       next(error);

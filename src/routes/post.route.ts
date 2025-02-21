@@ -13,5 +13,5 @@ router
 router
   .route("/upload")
   .post(authUser, upload.array("posts"), PostController.create);
-
+router.get("/", authUser, PostController.getPosts);
 export default router;

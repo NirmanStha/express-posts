@@ -8,7 +8,7 @@ import jwt from "jsonwebtoken";
 export class UserService {
   private static createAccessToken(user: User): string {
     return jwt.sign({ id: user.id }, "access_token", {
-      expiresIn: "1d",
+      expiresIn: "1m",
     });
   }
 
@@ -28,6 +28,7 @@ export class UserService {
     return passwordHash.verify(password, hash);
   }
   public static async refreshToken(token: string) {
+    console.log("hello");
     if (!token) {
       throw new CustomError("Token is required", 400);
     }

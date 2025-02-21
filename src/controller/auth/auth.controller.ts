@@ -52,12 +52,11 @@ export class AuthController {
           message: "User logged in successfully",
           data: { accessToken, refreshToken, safeUser },
         });
-      } else {
-        res.status(401).json({
-          status: "error",
-          message: "Invalid credentials",
-        });
       }
+      res.status(401).json({
+        status: "error",
+        message: "Invalid credentials",
+      });
     } catch (error) {
       next(error);
     }
@@ -69,7 +68,7 @@ export class AuthController {
       const newTokens = await UserService.refreshToken(token);
       res.status(200).json({
         status: "success",
-        message: "token refreshed",
+        message: "token refreshed successfully",
         data: newTokens,
       });
     } catch (error) {
