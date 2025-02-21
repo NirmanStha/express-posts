@@ -8,7 +8,7 @@ import jwt from "jsonwebtoken";
 export class UserService {
   private static createAccessToken(user: User): string {
     return jwt.sign({ id: user.id }, "access_token", {
-      expiresIn: "1m",
+      expiresIn: "1d",
     });
   }
 
