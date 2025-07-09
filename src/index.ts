@@ -5,6 +5,7 @@ import dotenv from "dotenv"; // Load environment variables
 import { AppDataSource } from "./config/dataSource";
 import apiRoute from "./api.route";
 import errorHandler from "./middlewares/errorHandler";
+import { specs, swaggerUi } from "./config/swagger";
 
 dotenv.config(); // Load .env variables
 
@@ -19,6 +20,17 @@ app.use(express.urlencoded({ extended: true }));
 AppDataSource.initialize()
   .then(() => console.log("✅ Database connected successfully"))
   .catch((error) => console.error(" Error connecting to database:", error));
+
+// Swagger Documentation
+app.use(
+  "/api-docs",
+  swaggerUi.serve,
+  swaggerUi.setup(specs, {
+    explorer: true,
+    customCss: ".swagger-ui .topbar { display: none }",
+    customSiteTitle: "Social Media API Documentation",
+  })
+);
 
 app.use("/api", apiRoute);
 

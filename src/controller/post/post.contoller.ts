@@ -4,6 +4,7 @@ import { PostService } from "../../services/post.service";
 import { CustomError } from "../../helpers/customError";
 import { postSchema } from "../../validation/postSchema";
 import { omit } from "../../helpers/omit";
+import { pick } from "../../helpers/pick";
 
 export class PostController {
   // Create a post
@@ -28,7 +29,7 @@ export class PostController {
       const post = await PostService.createPost(finalData);
       const safeData = {
         ...post,
-        user: omit(post.user, ["password", "role"]),
+        user: pick(post.user, ["id", "firstName", "lastName"]),
       };
       res.status(201).json({
         status: "success",
@@ -78,14 +79,45 @@ export class PostController {
     } catch (error) {
       next(error);
     }
-  }
-  //get all post
+  } //get all post
   static async getPosts(req: any, res: Response, next: NextFunction) {
     try {
-      const posts = await PostService.getAllPosts();
+      // Extract pagination and filtering parameters
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = Math.min(parseInt(req.query.limit as string) || 10, 50); // Max 50 items per page
+      const sortBy = (req.query.sortBy as string) || "createdAt";
+      const sortOrder = (req.query.sortOrder as "ASC" | "DESC") || "DESC";
+      const search = req.query.search as string;
+
+      const result = await PostService.getAllPosts({
+        page,
+        limit,
+        sortBy,
+        sortOrder,
+        search,
+      });
+
       res.status(200).json({
         status: "success",
-        data: posts,
+        message: "Posts retrieved successfully",
+        data: result.posts,
+        pagination: {
+          currentPage: result.currentPage,
+          totalPages: result.totalPages,
+          totalItems: result.totalItems,
+          itemsPerPage: limit,
+          hasNextPage: result.hasNextPage,
+          hasPrevPage: result.hasPrevPage,
+        },
+        meta: {
+          timestamp: new Date().toISOString(),
+          version: "1.0",
+          filters: {
+            search: search || null,
+            sortBy,
+            sortOrder,
+          },
+        },
       });
     } catch (error) {
       next(error);

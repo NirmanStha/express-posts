@@ -66,25 +66,123 @@ export class PostService {
     const updatedPost = await repo.postRepo.findOne({ where: { id: id } });
     return updatedPost;
   }
-  static async getAllPosts() {
-    const posts = await repo.postRepo
+  static async getAllPosts(options?: {
+    page?: number;
+    limit?: number;
+    sortBy?: string;
+    sortOrder?: "ASC" | "DESC";
+    search?: string;
+  }) {
+    const {
+      page = 1,
+      limit = 10,
+      sortBy = "createdAt",
+      sortOrder = "DESC",
+      search,
+    } = options || {};
+
+    let query = repo.postRepo
       .createQueryBuilder("post")
       .leftJoinAndSelect("post.user", "user")
       .leftJoinAndSelect("post.comments", "comment")
+      .leftJoinAndSelect("comment.user", "commentUser")
       .select([
-        "post",
+        // Post details
+        "post.id",
+        "post.title",
+        "post.content",
+        "post.filenames",
+        "post.createdAt",
+        "post.updatedAt",
+
+        // User details (excluding sensitive info)
         "user.id",
         "user.firstName",
         "user.lastName",
-        "user.age",
-        "user.gender",
+        "user.email",
+        "user.profilePicture",
+
+        // Comment details
         "comment.id",
-        "comment.content", // include any other comment fields you need
-      ])
+        "comment.content",
+        "comment.createdAt",
+        "comment.updatedAt",
+
+        // Comment user details
+        "commentUser.id",
+        "commentUser.firstName",
+        "commentUser.lastName",
+        "commentUser.profilePicture",
+      ]);
+
+    // Add search functionality
+    if (search) {
+      query = query.where(
+        "post.content ILIKE :search OR post.title ILIKE :search OR user.firstName ILIKE :search OR user.lastName ILIKE :search",
+        { search: `%${search}%` }
+      );
+    }
+
+    // Add sorting
+    query = query.orderBy(`post.${sortBy}`, sortOrder);
+
+    // Get total count for pagination
+    const totalItems = await query.getCount();
+    const totalPages = Math.ceil(totalItems / limit);
+
+    // Apply pagination
+    const posts = await query
+      .skip((page - 1) * limit)
+      .take(limit)
       .getMany();
 
-    console.log(posts);
+    // Transform the data to include comment counts and latest activity
+    const transformedPosts = posts.map((post) => ({
+      id: post.id,
+      title: post.title,
+      content: post.content,
+      images: post.filenames || [],
+      createdAt: post.createdAt,
+      updatedAt: post.updatedAt,
+      user: {
+        id: post.user.id,
+        firstName: post.user.firstName,
+        lastName: post.user.lastName,
+        email: post.user.email,
+        profilePicture: post.user.profilePicture,
+      },
+      stats: {
+        commentCount: post.comments?.length || 0,
+        hasComments: (post.comments?.length || 0) > 0,
+      },
+      latestComments:
+        post.comments
+          ?.sort(
+            (a, b) =>
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          )
+          ?.slice(0, 3) // Only show latest 3 comments
+          ?.map((comment) => ({
+            id: comment.id,
+            content: comment.content,
+            createdAt: comment.createdAt,
+            user: {
+              id: comment.user.id,
+              firstName: comment.user.firstName,
+              lastName: comment.user.lastName,
+              profilePicture: comment.user.profilePicture,
+              fullName: `${comment.user.firstName} ${comment.user.lastName}`,
+            },
+          })) || [],
+    }));
 
-    return posts;
+    return {
+      posts: transformedPosts,
+      totalItems,
+      totalPages,
+      currentPage: page,
+      hasNextPage: page < totalPages,
+      hasPrevPage: page > 1,
+    };
   }
 }

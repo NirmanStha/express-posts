@@ -46,11 +46,13 @@ export class AuthController {
       const tokens = await UserService.loginAuth(validatedData);
       if (tokens) {
         const { accessToken, refreshToken, user } = tokens;
-        const safeUser = omit(user, ["password"]);
+        const data = omit(user, ["password"]);
         res.status(200).json({
           status: "success",
           message: "User logged in successfully",
-          data: { accessToken, refreshToken, safeUser },
+          data,
+          accessToken,
+          refreshToken,
         });
       }
       res.status(401).json({

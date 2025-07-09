@@ -2,81 +2,17 @@ import { Router } from "express";
 import { authUser } from "../middlewares/authenticate";
 import { CommentController } from "../controller/comments/comment.controller";
 
-const router = Router({ mergeParams: true });
+const router = Router();
 
 /**
  * @swagger
- * /post/{postId}/comments:
- *   post:
- *     summary: Create a comment on a post
- *     tags: [Comments]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: postId
- *         required: true
- *         schema:
- *           type: string
- *         description: Post ID to comment on
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - content
- *             properties:
- *               content:
- *                 type: string
- *                 description: Comment content
- *     responses:
- *       201:
- *         description: Comment created successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: success
- *                 message:
- *                   type: string
- *                   example: Comment created successfully
- *                 data:
- *                   $ref: '#/components/schemas/Comment'
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       404:
- *         description: Post not found
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- */
-router.route("/").post(authUser, CommentController.create);
-
-/**
- * @swagger
- * /post/{postId}/comments/{id}:
+ * /comment/{id}:
  *   patch:
- *     summary: Update a comment
+ *     summary: Update a comment (standalone)
  *     tags: [Comments]
  *     security:
  *       - bearerAuth: []
  *     parameters:
- *       - in: path
- *         name: postId
- *         required: true
- *         schema:
- *           type: string
- *         description: Post ID
  *       - in: path
  *         name: id
  *         required: true
@@ -130,17 +66,11 @@ router.route("/").post(authUser, CommentController.create);
  *             schema:
  *               $ref: '#/components/schemas/Error'
  *   delete:
- *     summary: Delete a comment
+ *     summary: Delete a comment (standalone)
  *     tags: [Comments]
  *     security:
  *       - bearerAuth: []
  *     parameters:
- *       - in: path
- *         name: postId
- *         required: true
- *         schema:
- *           type: string
- *         description: Post ID
  *       - in: path
  *         name: id
  *         required: true
@@ -180,17 +110,11 @@ router.route("/").post(authUser, CommentController.create);
  *             schema:
  *               $ref: '#/components/schemas/Error'
  *   get:
- *     summary: Get a single comment
+ *     summary: Get a single comment (standalone)
  *     tags: [Comments]
  *     security:
  *       - bearerAuth: []
  *     parameters:
- *       - in: path
- *         name: postId
- *         required: true
- *         schema:
- *           type: string
- *         description: Post ID
  *       - in: path
  *         name: id
  *         required: true
@@ -226,4 +150,5 @@ router.route("/").post(authUser, CommentController.create);
 router.route("/:id").patch(authUser, CommentController.update);
 router.route("/:id").delete(authUser, CommentController.delete);
 router.route("/:id").get(authUser, CommentController.show);
+
 export default router;
