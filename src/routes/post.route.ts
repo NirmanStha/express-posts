@@ -69,122 +69,83 @@ const router = Router();
  *                     type: object
  *                     properties:
  *                       id:
- *                         type: string
+ *                         type: integer
+ *                         example: 17
  *                       title:
  *                         type: string
+ *                         example: "My Post Title"
  *                       content:
  *                         type: string
- *                       images:
+ *                         example: "This is my post content"
+ *                       filenames:
  *                         type: array
  *                         items:
  *                           type: string
+ *                         example: ["1739441547749-image1.jpg", "1739441547753-image2.jpg"]
  *                       createdAt:
  *                         type: string
  *                         format: date-time
+ *                         example: "2025-07-09T07:26:17.471Z"
  *                       updatedAt:
  *                         type: string
  *                         format: date-time
- *                       user:
- *                         type: object
- *                         properties:
- *                           id:
- *                             type: string
- *                           firstName:
- *                             type: string
- *                           lastName:
- *                             type: string
- *                           email:
- *                             type: string
- *                           profilePicture:
- *                             type: string
- *                           fullName:
- *                             type: string
- *                       stats:
- *                         type: object
- *                         properties:
- *                           commentCount:
- *                             type: integer
- *                           hasComments:
- *                             type: boolean
- *                       latestComments:
- *                         type: array
- *                         items:
- *                           type: object
- *                           properties:
- *                             id:
- *                               type: string
- *                             content:
- *                               type: string
- *                             createdAt:
- *                               type: string
- *                               format: date-time
- *                             user:
- *                               type: object
- *                               properties:
- *                                 id:
- *                                   type: string
- *                                 firstName:
- *                                   type: string
- *                                 lastName:
- *                                   type: string
- *                                 profilePicture:
- *                                   type: string
- *                                 fullName:
- *                                   type: string
+ *                         example: "2025-07-09T08:12:34.000Z"
+ *                       userId:
+ *                         type: integer
+ *                         example: 1
  *                 pagination:
  *                   type: object
  *                   properties:
  *                     currentPage:
  *                       type: integer
+ *                       example: 1
  *                     totalPages:
  *                       type: integer
+ *                       example: 5
  *                     totalItems:
  *                       type: integer
+ *                       example: 42
  *                     itemsPerPage:
  *                       type: integer
+ *                       example: 10
  *                     hasNextPage:
  *                       type: boolean
+ *                       example: true
  *                     hasPrevPage:
  *                       type: boolean
+ *                       example: false
  *                 meta:
  *                   type: object
  *                   properties:
  *                     timestamp:
  *                       type: string
  *                       format: date-time
+ *                       example: "2025-07-09T08:15:30.123Z"
  *                     version:
  *                       type: string
+ *                       example: "1.0"
  *                     filters:
  *                       type: object
  *                       properties:
  *                         search:
  *                           type: string
  *                           nullable: true
+ *                           example: "hello world"
  *                         sortBy:
+ *                           type: string
+ *                           example: "createdAt"
+ *                         sortOrder:
  *                           type: string
  *                         sortOrder:
  *                           type: string
  *       401:
  *         description: Unauthorized
- *       500:
- *         description: Internal server error
- *     responses:
- *       200:
- *         description: Posts retrieved successfully
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: success
- *                 data:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/Post'
- *       401:
- *         description: Unauthorized
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal server error
  *         content:
  *           application/json:
  *             schema:
@@ -213,6 +174,9 @@ router.get("/", authUser, PostController.getPosts);
  *               content:
  *                 type: string
  *                 description: Post content
+ *               title:
+ *                 type: string
+ *                 description: Post title (optional)
  *               posts:
  *                 type: array
  *                 items:
@@ -234,7 +198,45 @@ router.get("/", authUser, PostController.getPosts);
  *                   type: string
  *                   example: Post created successfully
  *                 data:
- *                   $ref: '#/components/schemas/Post'
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 17
+ *                     title:
+ *                       type: string
+ *                       example: "My Post Title"
+ *                     content:
+ *                       type: string
+ *                       example: "This is my post content"
+ *                     filenames:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: ["1739441547749-image1.jpg", "1739441547753-image2.jpg"]
+ *                     createdAt:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2025-07-09T07:26:17.471Z"
+ *                     updatedAt:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2025-07-09T07:26:17.471Z"
+ *                     userId:
+ *                       type: integer
+ *                       example: 1
+ *                     user:
+ *                       type: object
+ *                       properties:
+ *                         id:
+ *                           type: integer
+ *                           example: 1
+ *                         firstName:
+ *                           type: string
+ *                           example: "John"
+ *                         lastName:
+ *                           type: string
+ *                           example: "Doe"
  *       401:
  *         description: Unauthorized
  *         content:
@@ -268,7 +270,7 @@ router.use("/:postId/comments", commentRoute);
  *         name: id
  *         required: true
  *         schema:
- *           type: string
+ *           type: integer
  *         description: Post ID
  *     responses:
  *       200:
@@ -282,7 +284,33 @@ router.use("/:postId/comments", commentRoute);
  *                   type: string
  *                   example: success
  *                 data:
- *                   $ref: '#/components/schemas/Post'
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 17
+ *                     title:
+ *                       type: string
+ *                       example: "My Post Title"
+ *                     content:
+ *                       type: string
+ *                       example: "This is my post content"
+ *                     filenames:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: ["1739441547749-image1.jpg"]
+ *                     createdAt:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2025-07-09T07:26:17.471Z"
+ *                     updatedAt:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2025-07-09T08:12:34.000Z"
+ *                     userId:
+ *                       type: integer
+ *                       example: 1
  *       404:
  *         description: Post not found
  *         content:
@@ -305,7 +333,7 @@ router.use("/:postId/comments", commentRoute);
  *         name: id
  *         required: true
  *         schema:
- *           type: string
+ *           type: integer
  *         description: Post ID
  *     requestBody:
  *       required: true
@@ -314,6 +342,9 @@ router.use("/:postId/comments", commentRoute);
  *           schema:
  *             type: object
  *             properties:
+ *               title:
+ *                 type: string
+ *                 description: Updated post title
  *               content:
  *                 type: string
  *                 description: Updated post content
@@ -338,7 +369,30 @@ router.use("/:postId/comments", commentRoute);
  *                   type: string
  *                   example: Post updated successfully
  *                 data:
- *                   $ref: '#/components/schemas/Post'
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 17
+ *                     title:
+ *                       type: string
+ *                       example: "Updated Post Title"
+ *                     content:
+ *                       type: string
+ *                       example: "Updated post content"
+ *                     filenames:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: ["1739441547749-newimage.jpg"]
+ *                     createdAt:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2025-07-09T07:26:17.471Z"
+ *                     updatedAt:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2025-07-09T08:12:34.000Z"
  *       404:
  *         description: Post not found
  *         content:

@@ -5,9 +5,7 @@ import { AppDataSource } from "../config/dataSource";
 import { CustomError } from "../helpers/customError";
 
 export class PostService {
-  static async createPost(
-    data: Omit<Post, "id" | "createdAt" | "updatedAt" | "comments">
-  ) {
+  static async createPost(data: Partial<Post>) {
     const post = repo.postRepo.create(data);
 
     await repo.postRepo.save(post);

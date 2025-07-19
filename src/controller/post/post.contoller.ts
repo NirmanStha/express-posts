@@ -3,7 +3,7 @@ import { NextFunction, Response } from "express";
 import { PostService } from "../../services/post.service";
 import { CustomError } from "../../helpers/customError";
 import { postSchema } from "../../validation/postSchema";
-import { omit } from "../../helpers/omit";
+
 import { pick } from "../../helpers/pick";
 
 export class PostController {
