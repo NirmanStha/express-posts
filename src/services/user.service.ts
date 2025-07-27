@@ -138,6 +138,7 @@ export class UserService {
       where: { id: id },
       relations: ["posts"],
     });
+
     if (!user) {
       throw new CustomError("User not found", 404);
     }

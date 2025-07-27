@@ -14,7 +14,7 @@ export class UserController {
   ): Promise<void> {
     try {
       if (!req.user || !req.user.id) {
-        throw new CustomError("User not found in controller", 404);
+        throw new CustomError("User not found", 404);
       }
       const id = req.user.id;
 
@@ -23,6 +23,26 @@ export class UserController {
       if (!user) {
         return;
       }
+      res.status(200).json({
+        status: "success",
+        data: safeUser,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+  static async getUserById(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const id = req.params.id;
+      const user = await UserService.getSpecificUser(id);
+      if (!user) {
+        throw new CustomError("User not found", 404);
+      }
+      const safeUser = omit(user, ["password"]);
       res.status(200).json({
         status: "success",
         data: safeUser,
