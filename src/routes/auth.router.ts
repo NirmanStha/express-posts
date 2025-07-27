@@ -17,21 +17,54 @@ const router = Router();
  *           schema:
  *             type: object
  *             required:
+ *               - firstName
+ *               - lastName
+ *               - username
  *               - email
  *               - password
- *               - username
+ *               - age
+ *               - gender
  *             properties:
+ *               firstName:
+ *                 type: string
+ *                 minLength: 2
+ *                 description: User's first name
+ *                 example: "John"
+ *               lastName:
+ *                 type: string
+ *                 minLength: 2
+ *                 description: User's last name
+ *                 example: "Doe"
+ *               username:
+ *                 type: string
+ *                 minLength: 3
+ *                 description: Unique username
+ *                 example: "johndoe123"
  *               email:
  *                 type: string
  *                 format: email
  *                 description: User's email address
+ *                 example: "john.doe@example.com"
  *               password:
  *                 type: string
  *                 minLength: 6
  *                 description: User's password
- *               username:
+ *                 example: "password123"
+ *               age:
  *                 type: string
- *                 description: User's username
+ *                 description: User's age
+ *                 example: "25"
+ *               gender:
+ *                 type: string
+ *                 enum: ["Male", "Female", "Others"]
+ *                 description: User's gender
+ *                 example: "Male"
+ *               role:
+ *                 type: string
+ *                 enum: ["user", "admin"]
+ *                 default: "user"
+ *                 description: User's role (optional)
+ *                 example: "user"
  *               profilepic:
  *                 type: string
  *                 format: binary
@@ -88,16 +121,66 @@ router
  *                 type: string
  *                 format: email
  *                 description: User's email address
+ *                 example: "john.doe@example.com"
  *               password:
  *                 type: string
  *                 description: User's password
+ *                 example: "password123"
  *     responses:
  *       200:
  *         description: Login successful
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/LoginResponse'
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 message:
+ *                   type: string
+ *                   example: User logged in successfully
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                       example: "1"
+ *                     firstName:
+ *                       type: string
+ *                       example: "John"
+ *                     lastName:
+ *                       type: string
+ *                       example: "Doe"
+ *                     email:
+ *                       type: string
+ *                       example: "john.doe@example.com"
+ *                     age:
+ *                       type: string
+ *                       example: "25"
+ *                     gender:
+ *                       type: string
+ *                       example: "Male"
+ *                     role:
+ *                       type: string
+ *                       example: "user"
+ *                     profilePicture:
+ *                       type: string
+ *                       example: "1739089175432-profile.jpg"
+ *                     createdAt:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2025-07-09T07:26:17.471Z"
+ *                     updatedAt:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2025-07-09T07:26:17.471Z"
+ *                 accessToken:
+ *                   type: string
+ *                   example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *                 refreshToken:
+ *                   type: string
+ *                   example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
  *       401:
  *         description: Invalid credentials
  *         content:
@@ -132,6 +215,7 @@ router.route("/login").post(AuthController.login);
  *               refreshToken:
  *                 type: string
  *                 description: Valid refresh token
+ *                 example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
  *     responses:
  *       200:
  *         description: Token refreshed successfully
@@ -143,11 +227,34 @@ router.route("/login").post(AuthController.login);
  *                 status:
  *                   type: string
  *                   example: success
- *                 accessToken:
+ *                 message:
  *                   type: string
- *                   description: New access token
+ *                   example: token refreshed successfully
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     accessToken:
+ *                       type: string
+ *                       description: New access token
+ *                       example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *                     refreshToken:
+ *                       type: string
+ *                       description: New refresh token
+ *                       example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
  *       401:
- *         description: Invalid refresh token
+ *         description: Invalid or expired refresh token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: User not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal server error
  *         content:
  *           application/json:
  *             schema:

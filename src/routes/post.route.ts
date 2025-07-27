@@ -136,8 +136,7 @@ const router = Router();
  *                           example: "createdAt"
  *                         sortOrder:
  *                           type: string
- *                         sortOrder:
- *                           type: string
+ *                           example: "DESC"
  *       401:
  *         description: Unauthorized
  *         content:

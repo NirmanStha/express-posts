@@ -1,4 +1,3 @@
-import { DataSource } from "typeorm";
 import repo from "../config/repo";
 import { Post } from "../entities/post.entity";
 import { AppDataSource } from "../config/dataSource";
@@ -13,13 +12,12 @@ export class PostService {
   }
 
   static async getUsersSpecificPost(id: string) {
-    const uid = parseInt(id);
-    const post = await AppDataSource.getRepository(Post)
+    const post = await repo.postRepo
       .createQueryBuilder("post")
-      .where("post.id = :id", { id: uid }) // Changed `like` to `=`, as IDs should match exactly
-      .leftJoinAndSelect("post.user", "user") // Fetch user details
-      .leftJoinAndSelect("post.comments", "comment") // Fetch comments
-      .leftJoinAndSelect("comment.user", "commentUser") // Fetch comment author details
+      .where("post.id = :id", { id })
+      .leftJoinAndSelect("post.user", "user")
+      .leftJoinAndSelect("post.comments", "comment")
+      .leftJoinAndSelect("comment.user", "commentUser")
       .select([
         // Post details
         "post.id",
@@ -29,11 +27,12 @@ export class PostService {
         "post.createdAt",
         "post.updatedAt",
 
-        // User details
+        // User details (exclude sensitive info)
         "user.id",
-        "user.email",
         "user.firstName",
         "user.lastName",
+        "user.username",
+        "user.profilePicture",
 
         // Comment details
         "comment.id",
@@ -45,13 +44,52 @@ export class PostService {
         "commentUser.id",
         "commentUser.firstName",
         "commentUser.lastName",
+        "commentUser.username",
+        "commentUser.profilePicture",
       ])
+      .orderBy("comment.createdAt", "DESC")
       .getOne();
 
     if (!post) {
       throw new CustomError("Post not found", 404);
     }
-    return post;
+
+    // Transform response for better structure
+    return {
+      id: post.id,
+      title: post.title,
+      content: post.content,
+      images: post.filenames || [],
+      createdAt: post.createdAt,
+      updatedAt: post.updatedAt,
+      user: {
+        id: post.user.id,
+        firstName: post.user.firstName,
+        lastName: post.user.lastName,
+        username: post.user.username,
+        profilePicture: post.user.profilePicture,
+        fullName: `${post.user.firstName} ${post.user.lastName}`,
+      },
+      comments:
+        post.comments?.map((comment) => ({
+          id: comment.id,
+          content: comment.content,
+          createdAt: comment.createdAt,
+          updatedAt: comment.updatedAt,
+          user: {
+            id: comment.user.id,
+            firstName: comment.user.firstName,
+            lastName: comment.user.lastName,
+            username: comment.user.username,
+            profilePicture: comment.user.profilePicture,
+            fullName: `${comment.user.firstName} ${comment.user.lastName}`,
+          },
+        })) || [],
+      stats: {
+        commentCount: post.comments?.length || 0,
+        hasComments: (post.comments?.length || 0) > 0,
+      },
+    };
   }
 
   static async editPost(id: string, data: Partial<Post>) {

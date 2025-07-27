@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { ZodError } from "zod";
-import { CustomError } from "../helpers/customError"; // Assuming you have a CustomError class
+import { CustomError } from "../helpers/customError";
 
 const errorHandler = (
   error: any,
@@ -10,6 +10,11 @@ const errorHandler = (
 ): void => {
   console.error("Error:", error); // Log for debugging
 
+  // Check if response has already been sent
+  if (res.headersSent) {
+    return next(error);
+  }
+
   // Handle Zod Validation Errors
   if (error instanceof ZodError) {
     res.status(400).json({
@@ -17,6 +22,7 @@ const errorHandler = (
       message: "Validation failed",
       errors: error.errors, // Return detailed validation errors
     });
+    return;
   }
 
   // Handle Custom Errors (if using a CustomError class)
@@ -25,6 +31,7 @@ const errorHandler = (
       status: "error",
       message: error.message,
     });
+    return;
   }
 
   // Handle Generic Errors

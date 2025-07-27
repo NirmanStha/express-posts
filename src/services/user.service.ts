@@ -7,15 +7,23 @@ import jwt from "jsonwebtoken";
 
 export class UserService {
   private static createAccessToken(user: User): string {
-    return jwt.sign({ id: user.id }, "access_token", {
-      expiresIn: "1d",
-    });
+    return jwt.sign(
+      { id: user.id },
+      process.env.JWT_ACCESS_SECRET || "access_token",
+      {
+        expiresIn: (process.env.JWT_ACCESS_EXPIRES_IN as any) || "1d",
+      }
+    );
   }
 
   private static createRefreshToken(user: User): string {
-    return jwt.sign({ id: user.id }, "refresh_token", {
-      expiresIn: "7d",
-    });
+    return jwt.sign(
+      { id: user.id, type: "refresh" },
+      process.env.JWT_REFRESH_SECRET || "refresh_token",
+      {
+        expiresIn: (process.env.JWT_REFRESH_EXPIRES_IN as any) || "7d",
+      }
+    );
   }
 
   private static validatePassword(
@@ -28,21 +36,52 @@ export class UserService {
     return passwordHash.verify(password, hash);
   }
   public static async refreshToken(token: string) {
-    console.log("hello");
-    if (!token) {
-      throw new CustomError("Token is required", 400);
-    }
+    try {
+      if (!token) {
+        throw new CustomError("Refresh token is required", 400);
+      }
 
-    const decoded: any = jwt.verify(token, "refresh_token");
+      // Verify the refresh token with proper error handling
+      let decoded: any;
+      try {
+        decoded = jwt.verify(
+          token,
+          process.env.JWT_REFRESH_SECRET || "refresh_token"
+        );
+      } catch (jwtError: any) {
+        if (jwtError.name === "TokenExpiredError") {
+          throw new CustomError("Refresh token has expired", 401);
+        } else if (jwtError.name === "JsonWebTokenError") {
+          throw new CustomError("Invalid refresh token", 401);
+        } else {
+          throw new CustomError("Token verification failed", 401);
+        }
+      }
 
-    const user = await repo.userRepo.findOne({
-      where: { id: decoded.id },
-    });
-    if (!user) {
-      throw new CustomError("User not found", 404);
+      // Find user and verify they still exist
+      const user = await repo.userRepo.findOne({
+        where: { id: decoded.id },
+      });
+
+      if (!user) {
+        throw new CustomError("User not found", 404);
+      }
+
+      // Generate new tokens
+      const accessToken = this.createAccessToken(user);
+      const refreshToken = this.createRefreshToken(user);
+
+      return {
+        accessToken,
+        refreshToken,
+      };
+    } catch (error) {
+      // Re-throw CustomErrors, wrap others
+      if (error instanceof CustomError) {
+        throw error;
+      }
+      throw new CustomError("Failed to refresh token", 500);
     }
-    const accessToken = this.createAccessToken(user);
-    return { accessToken };
   }
   public static async register(
     data: Partial<User>,

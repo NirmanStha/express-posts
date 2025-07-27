@@ -54,11 +54,12 @@ export class AuthController {
           accessToken,
           refreshToken,
         });
+      } else {
+        res.status(401).json({
+          status: "error",
+          message: "Invalid credentials",
+        });
       }
-      res.status(401).json({
-        status: "error",
-        message: "Invalid credentials",
-      });
     } catch (error) {
       next(error);
     }
