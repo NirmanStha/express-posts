@@ -1,4 +1,3 @@
-import { profile } from "console";
 import { z } from "zod";
 
 export const userSchema = z.object({

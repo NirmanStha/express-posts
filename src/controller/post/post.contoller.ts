@@ -85,7 +85,7 @@ export class PostController {
       // Extract pagination and filtering parameters
       const page = parseInt(req.query.page as string) || 1;
       const limit = Math.min(parseInt(req.query.limit as string) || 10, 50); // Max 50 items per page
-      const sortBy = (req.query.sortBy as string) || "createdAt";
+      const sortBy = req.query.sortBy || "createdAt";
       const sortOrder = (req.query.sortOrder as "ASC" | "DESC") || "DESC";
       const search = req.query.search as string;
 
@@ -101,14 +101,7 @@ export class PostController {
         status: "success",
         message: "Posts retrieved successfully",
         data: result.posts,
-        pagination: {
-          currentPage: result.currentPage,
-          totalPages: result.totalPages,
-          totalItems: result.totalItems,
-          itemsPerPage: limit,
-          hasNextPage: result.hasNextPage,
-          hasPrevPage: result.hasPrevPage,
-        },
+
         meta: {
           timestamp: new Date().toISOString(),
           version: "1.0",

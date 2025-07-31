@@ -19,6 +19,7 @@ export class User {
 
   @Column()
   lastName!: string;
+
   @Column()
   age!: string;
 

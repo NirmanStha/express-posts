@@ -2,6 +2,10 @@ import repo from "../config/repo";
 import { Post } from "../entities/post.entity";
 import { AppDataSource } from "../config/dataSource";
 import { CustomError } from "../helpers/customError";
+import { PostOptions } from "../types/post.options";
+import { PostDto } from "../dtos/post/post.dto";
+import { PaginationDto } from "../dtos/pagination/pagination.dto";
+import { plainToClass } from "class-transformer";
 
 export class PostService {
   static async createPost(data: Partial<Post>) {
@@ -11,44 +15,19 @@ export class PostService {
     return post;
   }
 
-  static async getUsersSpecificPost(id: string) {
+  static async getUsersSpecificPost(id: string, options?: PostOptions) {
     const post = await repo.postRepo
       .createQueryBuilder("post")
-      .where("post.id = :id", { id })
       .leftJoinAndSelect("post.user", "user")
-      .leftJoinAndSelect("post.comments", "comment")
-      .leftJoinAndSelect("comment.user", "commentUser")
-      .select([
-        // Post details
-        "post.id",
-        "post.title",
-        "post.content",
-        "post.filenames",
-        "post.createdAt",
-        "post.updatedAt",
-
-        // User details (exclude sensitive info)
-        "user.id",
-        "user.firstName",
-        "user.lastName",
-        "user.username",
-        "user.profilePicture",
-
-        // Comment details
-        "comment.id",
-        "comment.content",
-        "comment.createdAt",
-        "comment.updatedAt",
-
-        // Comment user details
-        "commentUser.id",
-        "commentUser.firstName",
-        "commentUser.lastName",
-        "commentUser.username",
-        "commentUser.profilePicture",
-      ])
-      .orderBy("comment.createdAt", "DESC")
+      .where("post.id = :id", { id })
       .getOne();
+    const comments = await repo.comRepo
+      .createQueryBuilder("comment")
+      .leftJoinAndSelect("comment.user", "user")
+      .where("comment.postId = :postId", { postId: id })
+      .orderBy("comment.createdAt", "DESC")
+      .limit(5)
+      .getMany();
 
     if (!post) {
       throw new CustomError("Post not found", 404);
@@ -59,10 +38,10 @@ export class PostService {
       id: post.id,
       title: post.title,
       content: post.content,
-      images: post.filenames || [],
+      imageUrls: post.filenames || [],
       createdAt: post.createdAt,
       updatedAt: post.updatedAt,
-      user: {
+      author: {
         id: post.user.id,
         firstName: post.user.firstName,
         lastName: post.user.lastName,
@@ -70,24 +49,22 @@ export class PostService {
         profilePicture: post.user.profilePicture,
         fullName: `${post.user.firstName} ${post.user.lastName}`,
       },
-      comments:
-        post.comments?.map((comment) => ({
-          id: comment.id,
-          content: comment.content,
-          createdAt: comment.createdAt,
-          updatedAt: comment.updatedAt,
-          user: {
-            id: comment.user.id,
-            firstName: comment.user.firstName,
-            lastName: comment.user.lastName,
-            username: comment.user.username,
-            profilePicture: comment.user.profilePicture,
-            fullName: `${comment.user.firstName} ${comment.user.lastName}`,
-          },
-        })) || [],
+      comments: comments.map((comment) => ({
+        id: comment.id,
+        content: comment.content,
+        createdAt: comment.createdAt,
+        updatedAt: comment.updatedAt,
+        commenter: {
+          id: comment.user.id,
+          firstName: comment.user.firstName,
+          lastName: comment.user.lastName,
+          username: comment.user.username,
+          profilePicture: comment.user.profilePicture,
+          fullName: `${comment.user.firstName} ${comment.user.lastName}`,
+        },
+      })),
       stats: {
-        commentCount: post.comments?.length || 0,
-        hasComments: (post.comments?.length || 0) > 0,
+        commentCount: comments.length,
       },
     };
   }
@@ -102,123 +79,187 @@ export class PostService {
     const updatedPost = await repo.postRepo.findOne({ where: { id: id } });
     return updatedPost;
   }
-  static async getAllPosts(options?: {
-    page?: number;
-    limit?: number;
-    sortBy?: string;
-    sortOrder?: "ASC" | "DESC";
-    search?: string;
-  }) {
+  static async getAllPosts(options: PostOptions) {
     const {
       page = 1,
       limit = 10,
       sortBy = "createdAt",
       sortOrder = "DESC",
       search,
-    } = options || {};
+      userId,
+    } = this.validateOptions(options);
 
+    const query = this.buildPostQuery(search, sortBy, sortOrder, userId);
+    // Get total count for pagination
+    const totalItems = await query.getCount();
+    const totalPages = Math.ceil(totalItems / limit);
+
+    const post = await query
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getMany();
+
+    const postsWithComments = await this.postWithComments(post);
+
+    const postRes = plainToClass(PostDto, postsWithComments, {
+      excludeExtraneousValues: true,
+    });
+
+    return {
+      posts: postRes,
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalItems,
+        itemsPerPage: limit,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
+      },
+    };
+  }
+
+  // Apply pagination
+
+  private static buildPostQuery(
+    search?: string,
+    sortBy?: string,
+    sortOrder?: "ASC" | "DESC",
+    userId?: string
+  ) {
     let query = repo.postRepo
       .createQueryBuilder("post")
       .leftJoinAndSelect("post.user", "user")
-      .leftJoinAndSelect("post.comments", "comment")
-      .leftJoinAndSelect("comment.user", "commentUser")
       .select([
-        // Post details
         "post.id",
         "post.title",
         "post.content",
         "post.filenames",
         "post.createdAt",
         "post.updatedAt",
-
-        // User details (excluding sensitive info)
         "user.id",
         "user.firstName",
         "user.lastName",
         "user.email",
         "user.profilePicture",
-
-        // Comment details
-        "comment.id",
-        "comment.content",
-        "comment.createdAt",
-        "comment.updatedAt",
-
-        // Comment user details
-        "commentUser.id",
-        "commentUser.firstName",
-        "commentUser.lastName",
-        "commentUser.profilePicture",
       ]);
 
-    // Add search functionality
     if (search) {
       query = query.where(
-        "post.content ILIKE :search OR post.title ILIKE :search OR user.firstName ILIKE :search OR user.lastName ILIKE :search",
-        { search: `%${search}%` }
+        "(post.content ILIKE :search OR post.title ILIKE :search OR user.firstName ILIKE :search OR user.lastName ILIKE :search OR user.username ILIKE :search OR user.id = :userId)",
+        { search: `%${search}%`, userId: userId || null }
       );
     }
 
-    // Add sorting
-    query = query.orderBy(`post.${sortBy}`, sortOrder);
+    if (sortBy) {
+      query = query.orderBy(`post.${sortBy}`, sortOrder || "DESC");
+    }
 
-    // Get total count for pagination
-    const totalItems = await query.getCount();
-    const totalPages = Math.ceil(totalItems / limit);
-
-    // Apply pagination
-    const posts = await query
-      .skip((page - 1) * limit)
-      .take(limit)
-      .getMany();
-
-    // Transform the data to include comment counts and latest activity
-    const transformedPosts = posts.map((post) => ({
-      id: post.id,
-      title: post.title,
-      content: post.content,
-      images: post.filenames || [],
-      createdAt: post.createdAt,
-      updatedAt: post.updatedAt,
-      user: {
-        id: post.user.id,
-        firstName: post.user.firstName,
-        lastName: post.user.lastName,
-        email: post.user.email,
-        profilePicture: post.user.profilePicture,
-      },
-      stats: {
-        commentCount: post.comments?.length || 0,
-        hasComments: (post.comments?.length || 0) > 0,
-      },
-      latestComments:
-        post.comments
-          ?.sort(
-            (a, b) =>
-              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-          )
-          ?.slice(0, 3) // Only show latest 3 comments
-          ?.map((comment) => ({
-            id: comment.id,
-            content: comment.content,
-            createdAt: comment.createdAt,
-            user: {
-              id: comment.user.id,
-              firstName: comment.user.firstName,
-              lastName: comment.user.lastName,
-              profilePicture: comment.user.profilePicture,
-              fullName: `${comment.user.firstName} ${comment.user.lastName}`,
-            },
-          })) || [],
-    }));
-
+    return query;
+  }
+  private static validateOptions(options: PostOptions) {
+    const { page, limit, sortBy, sortOrder, search, userId } = options;
+    if (options.limit && (options.limit < 1 || options.limit > 100)) {
+      throw new CustomError("Limit must be between 1 and 100", 400);
+    }
+    if (page && page < 1) {
+      throw new CustomError("Page must be greater than 0", 400);
+    }
+    if (sortBy && !["createdAt", "updatedAt", "title"].includes(sortBy)) {
+      throw new CustomError("Invalid sortBy value", 400);
+    }
+    if (sortOrder && !["ASC", "DESC"].includes(sortOrder)) {
+      throw new CustomError("Invalid sortOrder value", 400);
+    }
+    if (search && typeof search !== "string") {
+      throw new CustomError("Search must be a string", 400);
+    }
+    if (userId && typeof userId !== "string") {
+      throw new CustomError("User ID must be a string", 400);
+    }
     return {
-      posts: transformedPosts,
-      totalItems,
-      totalPages,
-      currentPage: page,
-      hasNextPage: page < totalPages,
-      hasPrevPage: page > 1,
+      page: page || 1,
+      limit: limit || 10,
+      sortBy: sortBy || "createdAt",
+      sortOrder: sortOrder || "DESC",
+      search: search || "",
+      userId: userId || "",
     };
+  }
+  private static async postWithComments(posts: Post[]) {
+    if (!posts.length) return [];
+
+    const postIds = posts.map((post) => post.id);
+
+    // Get comment counts efficiently
+    const commentCounts = await repo.postRepo
+      .createQueryBuilder("post")
+      .leftJoin("post.comments", "comment")
+      .select("post.id", "postId")
+      .addSelect("COUNT(comment.id)", "commentCount")
+      .where("post.id IN (:...postIds)", { postIds })
+      .groupBy("post.id")
+      .getRawMany();
+
+    // Get latest 3 comments for each post efficiently
+    const latestComments = await repo.postRepo.manager
+      .createQueryBuilder()
+      .select("c.*")
+      .addSelect("u.id", "userId")
+      .addSelect("u.firstName", "userFirstName")
+      .addSelect("u.lastName", "userLastName")
+      .addSelect("u.profilePicture", "userProfilePicture")
+      .from((subQuery) => {
+        return subQuery
+          .select("*")
+          .addSelect(
+            'ROW_NUMBER() OVER (PARTITION BY "postId" ORDER BY "createdAt" DESC)',
+            "rn"
+          )
+          .from("comment", "c")
+          .where("c.postId IN (:...postIds)", { postIds });
+      }, "ranked_comments")
+      .leftJoin("user", "u", "ranked_comments.userId = u.id")
+      .where("ranked_comments.rn <= 3")
+      .getRawMany();
+
+    // Transform data
+    return posts.map((post: Post) => {
+      const commentCount =
+        commentCounts.find((cc) => cc.postId === post.id)?.commentCount || 0;
+      const postComments = latestComments
+        .filter((comment) => comment.postId === post.id)
+        .map((comment) => ({
+          id: comment.id,
+          content: comment.content,
+          createdAt: comment.createdAt,
+          commenter: {
+            id: comment.userId,
+            firstName: comment.userFirstName,
+            lastName: comment.userLastName,
+            profilePicture: comment.userProfilePicture,
+            fullName: `${comment.userFirstName} ${comment.userLastName}`,
+          },
+        }));
+      return {
+        id: post.id,
+        title: post.title,
+        content: post.content,
+        images: post.filenames || [],
+        createdAt: post.createdAt,
+        updatedAt: post.updatedAt,
+        author: {
+          id: post.user.id,
+          firstName: post.user.firstName,
+          lastName: post.user.lastName,
+          profilePicture: post.user.profilePicture,
+          fullName: `${post.user.firstName} ${post.user.lastName}`,
+        },
+        stats: {
+          commentCount: parseInt(commentCount),
+          hasComments: parseInt(commentCount) > 0,
+        },
+        latestComments: postComments,
+      };
+    });
   }
 }
