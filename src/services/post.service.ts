@@ -5,7 +5,7 @@ import { CustomError } from "../helpers/customError";
 import { PostOptions } from "../types/post.options";
 import { PostDto } from "../dtos/post/post.dto";
 import { PaginationDto } from "../dtos/pagination/pagination.dto";
-import { plainToClass } from "class-transformer";
+import { plainToInstance } from "class-transformer";
 
 export class PostService {
   static async createPost(data: Partial<Post>) {
@@ -18,9 +18,22 @@ export class PostService {
   static async getUsersSpecificPost(id: string, options?: PostOptions) {
     const post = await repo.postRepo
       .createQueryBuilder("post")
-      .leftJoinAndSelect("post.user", "user")
+      .leftJoin("post.user", "user")
+      .select([
+        "post.id",
+        "post.title",
+        "post.content",
+        "post.filenames",
+        "post.createdAt",
+        "post.updatedAt",
+        "user.id",
+        "user.firstName",
+        "user.lastName",
+        "user.profilePicture",
+      ])
       .where("post.id = :id", { id })
       .getOne();
+    console.log("Post found:", post);
     const comments = await repo.comRepo
       .createQueryBuilder("comment")
       .leftJoinAndSelect("comment.user", "user")
@@ -32,52 +45,52 @@ export class PostService {
     if (!post) {
       throw new CustomError("Post not found", 404);
     }
-
-    // Transform response for better structure
-    return {
-      id: post.id,
-      title: post.title,
-      content: post.content,
-      imageUrls: post.filenames || [],
-      createdAt: post.createdAt,
-      updatedAt: post.updatedAt,
-      author: {
-        id: post.user.id,
-        firstName: post.user.firstName,
-        lastName: post.user.lastName,
-        username: post.user.username,
-        profilePicture: post.user.profilePicture,
-        fullName: `${post.user.firstName} ${post.user.lastName}`,
-      },
-      comments: comments.map((comment) => ({
-        id: comment.id,
-        content: comment.content,
-        createdAt: comment.createdAt,
-        updatedAt: comment.updatedAt,
-        commenter: {
-          id: comment.user.id,
-          firstName: comment.user.firstName,
-          lastName: comment.user.lastName,
-          username: comment.user.username,
-          profilePicture: comment.user.profilePicture,
-          fullName: `${comment.user.firstName} ${comment.user.lastName}`,
-        },
-      })),
+    const result = {
+      ...post,
+      author: post.user,
+      latestComments: comments,
       stats: {
         commentCount: comments.length,
+        hasComments: comments.length > 0,
       },
     };
+
+    const postDto = plainToInstance(PostDto, result, {
+      excludeExtraneousValues: true,
+    });
+
+    return postDto;
   }
 
-  static async editPost(id: string, data: Partial<Post>) {
-    const post = await repo.postRepo.findOne({ where: { id: id } });
+  static async editPost(id: string, data: Partial<Post>, ownerId: string) {
+    const post = await repo.postRepo
+      .createQueryBuilder("post")
+      .leftJoin("post.user", "user")
+      .select([
+        "post.id",
+        "post.title",
+        "post.content",
+        "post.filenames",
+        "post.createdAt",
+        "post.updatedAt",
+        "user.id",
+      ])
+      .where("post.id = :id", { id })
+      .getOne();
+
     if (!post) {
       throw new CustomError("Post not found", 404);
+    }
+    if (post.user.id !== ownerId) {
+      throw new CustomError("You are not authorized to edit this post", 403);
     }
 
     await repo.postRepo.update(id, data);
     const updatedPost = await repo.postRepo.findOne({ where: { id: id } });
-    return updatedPost;
+    const postDto = plainToInstance(PostDto, updatedPost, {
+      excludeExtraneousValues: true,
+    });
+    return postDto;
   }
   static async getAllPosts(options: PostOptions) {
     const {
@@ -101,7 +114,7 @@ export class PostService {
 
     const postsWithComments = await this.postWithComments(post);
 
-    const postRes = plainToClass(PostDto, postsWithComments, {
+    const postRes = plainToInstance(PostDto, postsWithComments, {
       excludeExtraneousValues: true,
     });
 
@@ -117,8 +130,6 @@ export class PostService {
       },
     };
   }
-
-  // Apply pagination
 
   private static buildPostQuery(
     search?: string,
@@ -203,22 +214,28 @@ export class PostService {
     // Get latest 3 comments for each post efficiently
     const latestComments = await repo.postRepo.manager
       .createQueryBuilder()
-      .select("c.*")
+      .select("ranked_comments.c_id", "id")
+      .addSelect("ranked_comments.c_content", "content")
+      .addSelect("ranked_comments.c_createdAt", "createdAt")
+      .addSelect("ranked_comments.c_postId", "postId")
       .addSelect("u.id", "userId")
       .addSelect("u.firstName", "userFirstName")
       .addSelect("u.lastName", "userLastName")
       .addSelect("u.profilePicture", "userProfilePicture")
       .from((subQuery) => {
         return subQuery
-          .select("*")
-          .addSelect(
-            'ROW_NUMBER() OVER (PARTITION BY "postId" ORDER BY "createdAt" DESC)',
-            "rn"
-          )
+          .select([
+            "c.id AS c_id",
+            "c.content AS c_content",
+            "c.createdAt AS c_createdAt",
+            "c.userId AS c_userId",
+            "c.postId AS c_postId",
+            "ROW_NUMBER() OVER (PARTITION BY c.postId ORDER BY c.createdAt DESC) AS rn",
+          ])
           .from("comment", "c")
           .where("c.postId IN (:...postIds)", { postIds });
       }, "ranked_comments")
-      .leftJoin("user", "u", "ranked_comments.userId = u.id")
+      .leftJoin("user", "u", "ranked_comments.c_userId = u.id")
       .where("ranked_comments.rn <= 3")
       .getRawMany();
 
@@ -240,6 +257,7 @@ export class PostService {
             fullName: `${comment.userFirstName} ${comment.userLastName}`,
           },
         }));
+
       return {
         id: post.id,
         title: post.title,

@@ -19,5 +19,5 @@ export class CommentDto {
 
   @Expose()
   @Type(() => ShortUserDto)
-  user!: ShortUserDto;
+  commenter!: ShortUserDto;
 }

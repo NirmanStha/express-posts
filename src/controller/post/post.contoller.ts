@@ -59,9 +59,9 @@ export class PostController {
   static async update(req: any, res: Response, next: NextFunction) {
     try {
       const post_id = req.params.id;
-
+      const owner_id = req.user.id;
       const data = req.body;
-      console.log(data, "this is data");
+
       if (req.fileTypeError) {
         throw new CustomError("Invalid file format", 400);
       }
@@ -69,8 +69,8 @@ export class PostController {
         data.filenames = req.files.map((file: any) => file.filename);
       }
       const validatedData = postSchema.partial().parse(data);
-      console.log(validatedData, "this is validated data");
-      const post = await PostService.editPost(post_id, validatedData);
+
+      const post = await PostService.editPost(post_id, validatedData, owner_id);
       res.status(200).json({
         status: "success",
         message: "Post updated successfully",
@@ -100,7 +100,7 @@ export class PostController {
       res.status(200).json({
         status: "success",
         message: "Posts retrieved successfully",
-        data: result.posts,
+        data: result,
 
         meta: {
           timestamp: new Date().toISOString(),
