@@ -4,11 +4,11 @@ import { CommentService } from "../../services/comment.service";
 import { Request, Response, NextFunction } from "express";
 
 export class CommentController {
-  static async create(req: Request, res: Response, next: NextFunction) {
+  static async create(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const { content } = req.body;
       const { postId } = req.params;
-      const { user } = req as AuthRequest;
+      const { user } = req;
       if (!user) {
         res.status(401).json({ message: "Unauthorized" });
         return;

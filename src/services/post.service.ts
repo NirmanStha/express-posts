@@ -15,47 +15,22 @@ export class PostService {
     return post;
   }
 
-  static async getUsersSpecificPost(id: string, options?: PostOptions) {
-    const post = await repo.postRepo
-      .createQueryBuilder("post")
-      .leftJoin("post.user", "user")
-      .select([
-        "post.id",
-        "post.title",
-        "post.content",
-        "post.filenames",
-        "post.createdAt",
-        "post.updatedAt",
-        "user.id",
-        "user.firstName",
-        "user.lastName",
-        "user.profilePicture",
-      ])
-      .where("post.id = :id", { id })
-      .getOne();
-    console.log("Post found:", post);
-    const comments = await repo.comRepo
-      .createQueryBuilder("comment")
-      .leftJoinAndSelect("comment.user", "user")
-      .where("comment.postId = :postId", { postId: id })
-      .orderBy("comment.createdAt", "DESC")
-      .limit(5)
-      .getMany();
+  static async getUsersSpecificPost(id: string, options: PostOptions) {
+    const {
+      sortBy = "createdAt",
+      sortOrder = "DESC",
+      search,
+      userId,
+    } = this.validateOptions(options);
+
+    const query = this.buildPostQuery(search, sortBy, sortOrder, userId, id);
+    const post = await query.getOne();
 
     if (!post) {
       throw new CustomError("Post not found", 404);
     }
-    const result = {
-      ...post,
-      author: post.user,
-      latestComments: comments,
-      stats: {
-        commentCount: comments.length,
-        hasComments: comments.length > 0,
-      },
-    };
-
-    const postDto = plainToInstance(PostDto, result, {
+    const postWithComments = await this.postWithComments([post]);
+    const postDto = plainToInstance(PostDto, postWithComments[0], {
       excludeExtraneousValues: true,
     });
 
@@ -135,7 +110,8 @@ export class PostService {
     search?: string,
     sortBy?: string,
     sortOrder?: "ASC" | "DESC",
-    userId?: string
+    userId?: string,
+    post_id?: string
   ) {
     let query = repo.postRepo
       .createQueryBuilder("post")
@@ -153,7 +129,9 @@ export class PostService {
         "user.email",
         "user.profilePicture",
       ]);
-
+    if (post_id) {
+      query = query.andWhere("post.id = :post_id", { post_id });
+    }
     if (search) {
       query = query.where(
         "(post.content ILIKE :search OR post.title ILIKE :search OR user.firstName ILIKE :search OR user.lastName ILIKE :search OR user.username ILIKE :search OR user.id = :userId)",

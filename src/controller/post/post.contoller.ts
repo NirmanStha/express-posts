@@ -44,8 +44,14 @@ export class PostController {
   static async getPost(req: any, res: Response, next: NextFunction) {
     try {
       const id = req.params.id;
-
-      const post = await PostService.getUsersSpecificPost(id);
+      const sortBy = req.query.sortBy || "createdAt";
+      const sortOrder = (req.query.sortOrder as "ASC" | "DESC") || "DESC";
+      const search = req.query.search as string;
+      const post = await PostService.getUsersSpecificPost(id, {
+        sortBy,
+        sortOrder,
+        search,
+      });
 
       res.status(200).json({
         status: "success",

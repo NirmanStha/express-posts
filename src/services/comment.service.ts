@@ -1,14 +1,16 @@
+import { plainToInstance } from "class-transformer";
 import repo from "../config/repo";
 import { User } from "../entities/user.entity";
 import { CustomError } from "../helpers/customError";
 import { omit } from "../helpers/omit";
+import { CreateCommentDto } from "../dtos/comment/comment.dto";
 
 export class CommentService {
   static async createComment(content: string, postId: string, userId: string) {
     const post = await repo.postRepo.findOne({ where: { id: postId } });
     const user = await repo.userRepo.findOne({ where: { id: userId } });
     if (!post || !user) {
-      throw new Error("Post or User not found");
+      throw new Error("Invalid request, post or user not found");
     }
     const comment = repo.comRepo.create({
       content,
@@ -16,19 +18,17 @@ export class CommentService {
       user,
     });
     await repo.comRepo.save(comment);
-    const safeData = {
+
+    const data = {
       ...comment,
-      user: omit(comment.user, [
-        "password",
-        "email",
-        "age",
-        "createdAt",
-        "updatedAt",
-        "role",
-      ]),
-      post: omit(comment.post, ["user", "comments", "createdAt", "updatedAt"]),
+      author: comment.user,
+      post: post,
     };
-    return safeData;
+
+    const CommentDto = plainToInstance(CreateCommentDto, data, {
+      excludeExtraneousValues: true,
+    });
+    return CommentDto;
   }
 
   static async getSingleComment(com_id: string) {
@@ -42,16 +42,12 @@ export class CommentService {
 
     const safeData = {
       ...commentWithUser,
-      user: omit(commentWithUser.user, [
-        "password",
-        "email",
-        "age",
-        "createdAt",
-        "updatedAt",
-        "role",
-      ]),
+      author: commentWithUser.user,
     };
-    return safeData;
+    const commentDto = plainToInstance(CreateCommentDto, safeData, {
+      excludeExtraneousValues: true,
+    });
+    return commentDto;
   }
   static async updateComment(id: string, content: string, user: User) {
     const comment = await repo.comRepo.findOne({
