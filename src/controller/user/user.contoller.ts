@@ -2,9 +2,9 @@ import { Request, Response, NextFunction } from "express";
 import { UserService } from "../../services/user.service";
 import { omit } from "../../helpers/omit";
 import { userSchema } from "../../validation/userSchema";
-import { AuthRequest, authUser } from "../../middlewares/authenticate";
-import { Auth } from "typeorm";
+
 import { CustomError } from "../../helpers/customError";
+import { AuthRequest } from "../../request/authRequest";
 
 export class UserController {
   static async getUser(
@@ -13,10 +13,12 @@ export class UserController {
     next: NextFunction
   ): Promise<void> {
     try {
-      if (!req.user || !req.user.id) {
+      const authUser = req.user;
+
+      if (!authUser || !authUser.id) {
         throw new CustomError("User not found", 404);
       }
-      const id = req.user.id;
+      const id = authUser.id;
 
       const user = await UserService.getCurrentUser(id);
       const safeUser = omit(user, ["password"]);
@@ -31,6 +33,7 @@ export class UserController {
       next(error);
     }
   }
+
   static async getUserById(
     req: Request,
     res: Response,

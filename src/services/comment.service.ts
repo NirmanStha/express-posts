@@ -1,8 +1,6 @@
 import { plainToInstance } from "class-transformer";
 import repo from "../config/repo";
-import { User } from "../entities/user.entity";
 import { CustomError } from "../helpers/customError";
-import { omit } from "../helpers/omit";
 import { CreateCommentDto } from "../dtos/comment/comment.dto";
 
 export class CommentService {
@@ -10,7 +8,7 @@ export class CommentService {
     const post = await repo.postRepo.findOne({ where: { id: postId } });
     const user = await repo.userRepo.findOne({ where: { id: userId } });
     if (!post || !user) {
-      throw new Error("Invalid request, post or user not found");
+      throw new CustomError("Invalid request, post or user not found", 404);
     }
     const comment = repo.comRepo.create({
       content,
@@ -25,10 +23,9 @@ export class CommentService {
       post: post,
     };
 
-    const CommentDto = plainToInstance(CreateCommentDto, data, {
+    return plainToInstance(CreateCommentDto, data, {
       excludeExtraneousValues: true,
     });
-    return CommentDto;
   }
 
   static async getSingleComment(com_id: string) {
@@ -37,36 +34,45 @@ export class CommentService {
       relations: ["user"],
     });
     if (!commentWithUser) {
-      throw new Error("Comment not found");
+      throw new CustomError("Comment not found", 404);
     }
 
     const safeData = {
       ...commentWithUser,
       author: commentWithUser.user,
     };
-    const commentDto = plainToInstance(CreateCommentDto, safeData, {
+
+    return plainToInstance(CreateCommentDto, safeData, {
       excludeExtraneousValues: true,
     });
-    return commentDto;
   }
-  static async updateComment(id: string, content: string, user: User) {
+  static async updateComment(id: string, content: string, userId: string) {
     const comment = await repo.comRepo.findOne({
       where: { id: id },
-      relations: ["user"],
+      relations: ["user", "post"],
     });
     if (!comment) {
-      throw new Error("Comment not found");
+      throw new CustomError("Comment not found", 404);
     }
-    console.log(comment);
-    if (comment.user.id !== user.id) {
+
+    if (comment.user.id !== userId) {
       throw new CustomError(
         "You are not authorized to update this comment",
         403
       );
     }
-    await repo.comRepo.update(id, { content });
-    const updatedComment = await repo.comRepo.findOne({ where: { id: id } });
-    return updatedComment;
+
+    comment.content = content;
+    const updatedComment = await repo.comRepo.save(comment);
+
+    const safeData = {
+      ...updatedComment,
+      author: updatedComment.user,
+    };
+
+    return plainToInstance(CreateCommentDto, safeData, {
+      excludeExtraneousValues: true,
+    });
   }
   static async deleteComment(id: string, userId: string) {
     const comment = await repo.comRepo.findOne({

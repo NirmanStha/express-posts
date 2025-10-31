@@ -1,5 +1,6 @@
 import { CustomError } from "../../helpers/customError";
-import { AuthRequest } from "../../middlewares/authenticate";
+import { AuthRequest } from "../../request/authRequest";
+
 import { CommentService } from "../../services/comment.service";
 import { Request, Response, NextFunction } from "express";
 
@@ -8,18 +9,20 @@ export class CommentController {
     try {
       const { content } = req.body;
       const { postId } = req.params;
-      const { user } = req;
-      if (!user) {
-        res.status(401).json({ message: "Unauthorized" });
-        return;
+      const userId = req.user?.id;
+
+      if (!userId) {
+        throw new CustomError("Unauthorized", 401);
       }
+
       const comment = await CommentService.createComment(
         content,
         postId,
-        user.id
+        userId
       );
-      res.status(200).json({
-        status: "successfull",
+
+      res.status(201).json({
+        status: "success",
         message: "Comment created successfully",
         data: comment,
       });
@@ -28,17 +31,17 @@ export class CommentController {
     }
   }
 
-  static async update(req: Request, res: Response, next: NextFunction) {
+  static async update(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
       const { content } = req.body;
-      const body = req as AuthRequest;
-      const user = body.user;
-      if (!user) {
+      const userId = req.user?.id;
+
+      if (!userId) {
         throw new CustomError("Unauthorized", 401);
       }
 
-      const comment = await CommentService.updateComment(id, content, user);
+      const comment = await CommentService.updateComment(id, content, userId);
 
       res.status(200).json({
         status: "success",
@@ -49,15 +52,16 @@ export class CommentController {
       next(error);
     }
   }
-  static async delete(req: Request, res: Response, next: NextFunction) {
+  static async delete(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const body = req as AuthRequest;
-      const user = body.user;
+      const user = req.user;
+
       if (!user) {
         throw new CustomError("Unauthorized", 401);
       }
-      const comment = await CommentService.deleteComment(id, user.id);
+
+      await CommentService.deleteComment(id, user.id);
       res.status(200).json({ status: "success", message: "Comment deleted" });
     } catch (error) {
       next(error);
@@ -65,10 +69,9 @@ export class CommentController {
   }
   static async show(req: Request, res: Response, next: NextFunction) {
     try {
-      console.log(req.params, "this is params");
       const { id } = req.params;
       const comment = await CommentService.getSingleComment(id);
-      res.status(200).json({ satus: "success", data: comment });
+      res.status(200).json({ status: "success", data: comment });
     } catch (error) {
       next(error);
     }

@@ -3,6 +3,7 @@ import { userSchema } from "../../validation/userSchema";
 import { UserService } from "../../services/user.service";
 import { omit } from "../../helpers/omit";
 import { ZodError } from "zod";
+import { AuthRequest } from "../../request/authRequest";
 
 export class AuthController {
   static async register(
@@ -20,8 +21,6 @@ export class AuthController {
       const validatedData = userSchema.parse(data);
 
       const user = await UserService.register(validatedData, next);
-
-      if (!user) return;
 
       res.status(201).json({
         status: "success",
@@ -43,23 +42,17 @@ export class AuthController {
         .pick({ email: true, password: true })
         .parse(data);
 
-      const tokens = await UserService.loginAuth(validatedData);
-      if (tokens) {
-        const { accessToken, refreshToken, user } = tokens;
-        const data = omit(user, ["password"]);
-        res.status(200).json({
-          status: "success",
-          message: "User logged in successfully",
-          data,
-          accessToken,
-          refreshToken,
-        });
-      } else {
-        res.status(401).json({
-          status: "error",
-          message: "Invalid credentials",
-        });
-      }
+      const authUser = await UserService.loginAuth(validatedData);
+      const { accessToken, refreshToken, user } = authUser;
+      if (!authUser) return;
+
+      res.status(200).json({
+        status: "success",
+        message: "Login successful",
+        data: user,
+        accessToken,
+        refreshToken,
+      });
     } catch (error) {
       next(error);
     }

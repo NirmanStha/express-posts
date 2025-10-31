@@ -1,67 +1,45 @@
 import { Request, Response, NextFunction } from "express";
-import repo from "../config/repo";
-import { verify } from "jsonwebtoken";
-import { User } from "../entities/user.entity";
+import { verify, JwtPayload } from "jsonwebtoken";
 import { CustomError } from "../helpers/customError";
+import { AuthRequest } from "../request/authRequest";
 
-export interface AuthRequest extends Request {
-  user?: User;
-}
-
-export const authUser = async (
+export const authUser = (
   req: AuthRequest,
   res: Response,
   next: NextFunction
-): Promise<void> => {
+): void => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return next(new CustomError("Access denied, no token provided", 401));
+  }
+
+  const token = authHeader.split(" ")[1];
+
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer")) {
-      res.status(401).json({
-        status: "error",
-        message: "Access denied, no token provided",
-      });
-      return;
-    }
-
-    const token = authHeader.split(" ")[1];
-
-    // Use environment variable for JWT secret
-    const decoded: any = verify(
+    const decoded = verify(
       token,
-      process.env.JWT_ACCESS_SECRET || "access_token"
-    );
-    const user = await repo.userRepo.findOne({ where: { id: decoded.id } });
+      process.env.JWT_ACCESS_SECRET as string
+    ) as JwtPayload;
 
-    if (!user) {
-      res.status(404).json({
-        status: "error",
-        message: "User not found",
-      });
-      return;
+    if (!decoded || !decoded.id) {
+      return next(new CustomError("Invalid token payload", 401));
     }
+    req.user = {
+      id: decoded.id,
+      role: decoded.role,
+    };
 
-    req.user = user;
     next();
-  } catch (error: any) {
-    // Handle JWT specific errors
-    if (error.name === "TokenExpiredError") {
-      res.status(401).json({
-        status: "error",
-        message: "Token expired, please login again",
-        expiredAt: error.expiredAt,
-      });
-      return;
+  } catch (err: any) {
+    if (err.name === "TokenExpiredError") {
+      return next(new CustomError("Token expired", 401));
     }
 
-    if (error.name === "JsonWebTokenError") {
-      res.status(401).json({
-        status: "error",
-        message: "Invalid token",
-      });
-      return;
+    if (err.name === "JsonWebTokenError") {
+      return next(new CustomError("Invalid token", 401));
     }
 
-    // For other errors, pass to error handler
-    next(error);
+    next(err); // other unexpected error
   }
 };

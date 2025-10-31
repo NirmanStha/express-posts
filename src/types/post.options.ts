@@ -1,5 +1,3 @@
-import { string } from "zod";
-
 export interface PostOptions {
   page?: number;
   limit?: number;
