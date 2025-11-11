@@ -1,30 +1,30 @@
-import { NextFunction } from "express";
 import { User } from "../entities/user.entity";
 import repo from "../config/repo";
 import { CustomError } from "../helpers/customError";
-import passwordHash from "password-hash";
 import jwt from "jsonwebtoken";
 import { plainToInstance } from "class-transformer";
 import { UserDto } from "../dtos/user/user.dto";
 import bcrypt from "bcrypt";
+import env from "../config/env";
+
 export class UserService {
   private static createAccessToken(user: User): string {
     return jwt.sign(
       { id: user.id, role: user.role, type: "access" },
-      process.env.JWT_ACCESS_SECRET || "access_token",
+      env.JWT_ACCESS_SECRET,
       {
-        expiresIn: (process.env.JWT_ACCESS_EXPIRES_IN as any) || "1d",
-      }
+        expiresIn: env.JWT_ACCESS_EXPIRES_IN,
+      } as jwt.SignOptions
     );
   }
 
   private static createRefreshToken(user: User): string {
     return jwt.sign(
       { id: user.id, role: user.role, type: "refresh" },
-      process.env.JWT_REFRESH_SECRET || "refresh_token",
+      env.JWT_REFRESH_SECRET,
       {
-        expiresIn: (process.env.JWT_REFRESH_EXPIRES_IN as any) || "7d",
-      }
+        expiresIn: env.JWT_REFRESH_EXPIRES_IN,
+      } as jwt.SignOptions
     );
   }
 
@@ -44,10 +44,7 @@ export class UserService {
       // Verify the refresh token with proper error handling
       let decoded: any;
       try {
-        decoded = jwt.verify(
-          token,
-          process.env.JWT_REFRESH_SECRET || "refresh_token"
-        );
+        decoded = jwt.verify(token, env.JWT_REFRESH_SECRET);
       } catch (jwtError: any) {
         if (jwtError.name === "TokenExpiredError") {
           throw new CustomError("Refresh token has expired", 401);
@@ -83,10 +80,7 @@ export class UserService {
       throw new CustomError("Failed to refresh token", 500);
     }
   }
-  public static async register(
-    data: Partial<User>,
-    next: NextFunction
-  ): Promise<Boolean | void> {
+  public static async register(data: Partial<User>): Promise<Boolean> {
     if (!data.email) {
       throw new CustomError("Email is required", 400);
     }
@@ -96,13 +90,15 @@ export class UserService {
     });
 
     if (existingUserEmail) {
-      return next(new CustomError("User already exists", 409)); // Return to stop execution
+      throw new CustomError("User already exists", 409);
     }
+
     const existingUserUsername = await repo.userRepo.findOne({
       where: { username: data.username },
     });
+
     if (existingUserUsername) {
-      return next(new CustomError("Username already exists", 409)); // Return to stop execution
+      throw new CustomError("Username already exists", 409);
     }
 
     if (!data.password) {
@@ -152,7 +148,6 @@ export class UserService {
   }
 
   public static async getCurrentUser(id: string): Promise<User> {
-    console.log("this is id", id);
     const user = await repo.userRepo.findOne({
       where: { id: id },
       relations: ["posts"],

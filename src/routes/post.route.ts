@@ -2,7 +2,7 @@ import { Router } from "express";
 import upload from "../middlewares/upload";
 
 import { authUser } from "../middlewares/authenticate";
-import { PostController } from "../controller/post/post.contoller";
+import { PostController } from "../controller/post/post.controller";
 import commentRoute from "./comment.routes";
 const router = Router();
 

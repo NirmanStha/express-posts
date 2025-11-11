@@ -1,11 +1,12 @@
-import { Request, Response, NextFunction } from "express";
+import { Response, NextFunction } from "express";
 import { verify, JwtPayload } from "jsonwebtoken";
 import { CustomError } from "../helpers/customError";
 import { AuthRequest } from "../request/authRequest";
+import env from "../config/env";
 
 export const authUser = (
   req: AuthRequest,
-  res: Response,
+  _res: Response,
   next: NextFunction
 ): void => {
   const authHeader = req.headers.authorization;
@@ -17,10 +18,7 @@ export const authUser = (
   const token = authHeader.split(" ")[1];
 
   try {
-    const decoded = verify(
-      token,
-      process.env.JWT_ACCESS_SECRET as string
-    ) as JwtPayload;
+    const decoded = verify(token, env.JWT_ACCESS_SECRET) as JwtPayload;
 
     if (!decoded || !decoded.id) {
       return next(new CustomError("Invalid token payload", 401));

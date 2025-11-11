@@ -7,19 +7,24 @@ export class CommentService {
   static async createComment(content: string, postId: string, userId: string) {
     const post = await repo.postRepo.findOne({ where: { id: postId } });
     const user = await repo.userRepo.findOne({ where: { id: userId } });
+
     if (!post || !user) {
       throw new CustomError("Invalid request, post or user not found", 404);
     }
+
     const comment = repo.comRepo.create({
       content,
       post,
       user,
     });
+
     await repo.comRepo.save(comment);
 
     const data = {
-      ...comment,
-      author: comment.user,
+      id: comment.id,
+      content: comment.content,
+      createdAt: comment.createdAt,
+      author: user,
       post: post,
     };
 

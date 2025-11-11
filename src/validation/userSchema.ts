@@ -7,7 +7,11 @@ export const userSchema = z.object({
   email: z.string().email("Invalid email format"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   role: z.enum(["user", "admin"]).default("user"),
-  age: z.string(),
+  age: z.coerce
+    .number()
+    .int()
+    .min(13, "Age must be at least 13")
+    .max(120, "Invalid age"),
   profilePicture: z.string().optional(),
   gender: z.enum(["Male", "Female", "Others"]),
 });

@@ -1,14 +1,21 @@
 import repo from "../config/repo";
 import { Post } from "../entities/post.entity";
-import { AppDataSource } from "../config/dataSource";
 import { CustomError } from "../helpers/customError";
 import { PostOptions } from "../types/post.options";
 import { PostDto } from "../dtos/post/post.dto";
-import { PaginationDto } from "../dtos/pagination/pagination.dto";
 import { plainToInstance } from "class-transformer";
 
 export class PostService {
-  static async createPost(data: Partial<Post>) {
+  static async createPost(data: any) {
+    // Fetch the complete user object if only ID is provided
+    if (data.user && "id" in data.user && !("firstName" in data.user)) {
+      const user = await repo.userRepo.findOne({ where: { id: data.user.id } });
+      if (!user) {
+        throw new CustomError("User not found", 404);
+      }
+      data.user = user;
+    }
+
     const post = repo.postRepo.create(data);
 
     await repo.postRepo.save(post);
@@ -179,62 +186,59 @@ export class PostService {
 
     const postIds = posts.map((post) => post.id);
 
-    // Get comment counts efficiently
-    const commentCounts = await repo.postRepo
-      .createQueryBuilder("post")
-      .leftJoin("post.comments", "comment")
-      .select("post.id", "postId")
-      .addSelect("COUNT(comment.id)", "commentCount")
-      .where("post.id IN (:...postIds)", { postIds })
-      .groupBy("post.id")
-      .getRawMany();
+    // Optimized single query to get all comments with their users
+    const commentsWithUsers = await repo.comRepo
+      .createQueryBuilder("comment")
+      .leftJoinAndSelect("comment.user", "user")
+      .select([
+        "comment.id",
+        "comment.content",
+        "comment.createdAt",
+        "comment.postId",
+        "user.id",
+        "user.firstName",
+        "user.lastName",
+        "user.profilePicture",
+      ])
+      .where("comment.postId IN (:...postIds)", { postIds })
+      .orderBy("comment.createdAt", "DESC")
+      .getMany();
 
-    // Get latest 3 comments for each post efficiently
-    const latestComments = await repo.postRepo.manager
-      .createQueryBuilder()
-      .select("ranked_comments.c_id", "id")
-      .addSelect("ranked_comments.c_content", "content")
-      .addSelect("ranked_comments.c_createdAt", "createdAt")
-      .addSelect("ranked_comments.c_postId", "postId")
-      .addSelect("u.id", "userId")
-      .addSelect("u.firstName", "userFirstName")
-      .addSelect("u.lastName", "userLastName")
-      .addSelect("u.profilePicture", "userProfilePicture")
-      .from((subQuery) => {
-        return subQuery
-          .select([
-            "c.id AS c_id",
-            "c.content AS c_content",
-            "c.createdAt AS c_createdAt",
-            "c.userId AS c_userId",
-            "c.postId AS c_postId",
-            "ROW_NUMBER() OVER (PARTITION BY c.postId ORDER BY c.createdAt DESC) AS rn",
-          ])
-          .from("comment", "c")
-          .where("c.postId IN (:...postIds)", { postIds });
-      }, "ranked_comments")
-      .leftJoin("user", "u", "ranked_comments.c_userId = u.id")
-      .where("ranked_comments.rn <= 3")
-      .getRawMany();
+    // Group comments by post and get counts
+    const commentsByPost = new Map<string, any[]>();
+    const commentCounts = new Map<string, number>();
 
-    // Transform data
-    return posts.map((post: Post) => {
-      const commentCount =
-        commentCounts.find((cc) => cc.postId === post.id)?.commentCount || 0;
-      const postComments = latestComments
-        .filter((comment) => comment.postId === post.id)
-        .map((comment) => ({
+    commentsWithUsers.forEach((comment) => {
+      const postId = (comment as any).postId;
+      if (!commentsByPost.has(postId)) {
+        commentsByPost.set(postId, []);
+        commentCounts.set(postId, 0);
+      }
+
+      // Only add first 3 comments per post
+      if (commentsByPost.get(postId)!.length < 3) {
+        commentsByPost.get(postId)!.push({
           id: comment.id,
           content: comment.content,
           createdAt: comment.createdAt,
           commenter: {
-            id: comment.userId,
-            firstName: comment.userFirstName,
-            lastName: comment.userLastName,
-            profilePicture: comment.userProfilePicture,
-            fullName: `${comment.userFirstName} ${comment.userLastName}`,
+            id: comment.user.id,
+            firstName: comment.user.firstName,
+            lastName: comment.user.lastName,
+            profilePicture: comment.user.profilePicture,
+            fullName: `${comment.user.firstName} ${comment.user.lastName}`,
           },
-        }));
+        });
+      }
+
+      // Increment count
+      commentCounts.set(postId, commentCounts.get(postId)! + 1);
+    });
+
+    // Transform data
+    return posts.map((post: Post) => {
+      const commentCount = commentCounts.get(post.id) || 0;
+      const postComments = commentsByPost.get(post.id) || [];
 
       return {
         id: post.id,
@@ -251,8 +255,8 @@ export class PostService {
           fullName: `${post.user.firstName} ${post.user.lastName}`,
         },
         stats: {
-          commentCount: parseInt(commentCount),
-          hasComments: parseInt(commentCount) > 0,
+          commentCount: commentCount,
+          hasComments: commentCount > 0,
         },
         latestComments: postComments,
       };

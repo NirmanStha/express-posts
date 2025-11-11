@@ -68,6 +68,10 @@ Authorization: Bearer <your_jwt_token>
 
 ## 🛠 API Endpoints
 
+### Health
+
+- `GET /health` - Health check endpoint
+
 ### Authentication
 
 - `POST /auth/register` - Register a new user
@@ -76,19 +80,34 @@ Authorization: Bearer <your_jwt_token>
 
 ### User Management
 
-- `GET /user/getUser` - Get current user profile
+- `GET /user/me` - Get current user profile
+- `GET /user/:id` - Get user by ID
 - `PATCH /user/updateUser` - Update user profile
 
 ### Posts
 
-- `GET /post/` - Get all posts
+- `GET /post/` - Get all posts with pagination, search, and sorting
+  - Query parameters:
+    - `page` (optional) - Page number (default: 1)
+    - `limit` (optional) - Items per page, max 50 (default: 10)
+    - `search` (optional) - Search by content, title, or author name
+    - `sortBy` (optional) - Field to sort by: `createdAt`, `updatedAt`, `title` (default: `createdAt`)
+    - `sortOrder` (optional) - Sort order: `ASC`, `DESC` (default: `DESC`)
 - `POST /post/upload` - Create a new post
 - `GET /post/:id` - Get a single post
 - `PATCH /post/:id` - Update a post
 
 ### Comments
 
+#### Nested Routes (under posts)
+
 - `POST /post/:postId/comments` - Create a comment on a post
+- `GET /post/:postId/comments/:id` - Get a comment on a post
+- `PATCH /post/:postId/comments/:id` - Update a comment on a post
+- `DELETE /post/:postId/comments/:id` - Delete a comment on a post
+
+#### Standalone Routes
+
 - `GET /comment/:id` - Get a single comment
 - `PATCH /comment/:id` - Update a comment
 - `DELETE /comment/:id` - Delete a comment

@@ -6,30 +6,33 @@ import {
   OneToMany,
   UpdateDateColumn,
   CreateDateColumn,
+  Index,
 } from "typeorm";
 import { Post } from "./post.entity";
 import { Comment } from "./comment.entity";
 @Entity()
+@Index(["email"]) // Index for login queries
+@Index(["username"]) // Index for username lookups
 export class User {
   @PrimaryGeneratedColumn()
   id!: string;
 
-  @Column()
+  @Column({ length: 100 })
   firstName!: string;
 
-  @Column()
+  @Column({ length: 100 })
   lastName!: string;
 
-  @Column()
-  age!: string;
+  @Column({ type: "int" })
+  age!: number;
 
-  @Column({ unique: true })
+  @Column({ unique: true, length: 255 })
   email!: string;
 
-  @Column({ unique: true })
+  @Column({ unique: true, length: 50 })
   username!: string;
 
-  @Column()
+  @Column({ length: 255 })
   password!: string;
 
   @Column({
@@ -39,7 +42,7 @@ export class User {
   })
   role!: string;
 
-  @Column()
+  @Column({ length: 255, nullable: true })
   profilePicture!: string;
 
   @Column({

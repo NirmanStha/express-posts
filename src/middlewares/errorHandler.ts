@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { ZodError } from "zod";
 import { CustomError } from "../helpers/customError";
+import logger from "../config/logger";
 
 const errorHandler = (
   error: any,
@@ -8,7 +9,13 @@ const errorHandler = (
   res: Response,
   next: NextFunction
 ): void => {
-  console.error("Error:", error); // Log for debugging
+  // Log error for debugging
+  logger.error("Error:", {
+    message: error.message,
+    stack: error.stack,
+    path: req.path,
+    method: req.method,
+  });
 
   // Check if response has already been sent
   if (res.headersSent) {

@@ -5,16 +5,20 @@ import {
   Column,
   PrimaryGeneratedColumn,
   ManyToOne,
+  Index,
 } from "typeorm";
 import { Post } from "./post.entity";
 import { User } from "./user.entity";
 
 @Entity()
+@Index(["post"]) // Index for finding comments by post
+@Index(["user"]) // Index for finding comments by user
+@Index(["createdAt"]) // Index for sorting comments
 export class Comment {
   @PrimaryGeneratedColumn()
   id!: string;
 
-  @Column()
+  @Column({ type: "text" })
   content!: string;
 
   @CreateDateColumn()

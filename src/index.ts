@@ -1,15 +1,35 @@
 import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import path from "path";
-import dotenv from "dotenv"; // Load environment variables
+import morgan from "morgan";
+import rateLimit from "express-rate-limit";
+import env from "./config/env"; // Validate environment variables first
 import { AppDataSource } from "./config/dataSource";
 import apiRoute from "./api.route";
 import errorHandler from "./middlewares/errorHandler";
 import { specs, swaggerUi } from "./config/swagger";
-
-dotenv.config(); // Load .env variables
+import logger, { morganStream } from "./config/logger";
 
 const app = express();
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+  message: "Too many requests from this IP, please try again later.",
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Apply rate limiting to all routes
+app.use("/api", limiter);
+
+// HTTP request logging
+if (process.env.NODE_ENV === "production") {
+  app.use(morgan("combined", { stream: morganStream }));
+} else {
+  app.use(morgan("dev", { stream: morganStream }));
+}
 
 app.use(express.static("uploads"));
 app.use(express.json());
@@ -18,8 +38,11 @@ app.use("/files", express.static(path.join(process.cwd(), "/src/uploads")));
 app.use(express.urlencoded({ extended: true }));
 
 AppDataSource.initialize()
-  .then(() => console.log("✅ Database connected successfully"))
-  .catch((error) => console.error(" Error connecting to database:", error));
+  .then(() => logger.info("✅ Database connected successfully"))
+  .catch((error) => {
+    logger.error("❌ Error connecting to database:", error);
+    process.exit(1);
+  });
 
 // Swagger Documentation
 app.use(
@@ -34,7 +57,7 @@ app.use(
 
 app.use("/api", apiRoute);
 
-app.use((req: Request, res: Response, next: NextFunction) => {
+app.use((_req: Request, _res: Response, next: NextFunction) => {
   next({
     message: "Page not found",
     status: 404,
@@ -43,7 +66,9 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 
 app.use(errorHandler);
 
-const PORT = process.env.PORT ? Number(process.env.PORT) : 5000;
+const PORT = Number(env.PORT);
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  logger.info(`🚀 Server running on http://localhost:${PORT}`);
+  logger.info(`📚 API Documentation: http://localhost:${PORT}/api-docs`);
+  logger.info(`🌍 Environment: ${env.NODE_ENV}`);
 });

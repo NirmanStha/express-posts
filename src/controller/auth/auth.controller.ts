@@ -1,9 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import { userSchema } from "../../validation/userSchema";
 import { UserService } from "../../services/user.service";
-import { omit } from "../../helpers/omit";
-import { ZodError } from "zod";
-import { AuthRequest } from "../../request/authRequest";
+import { CustomError } from "../../helpers/customError";
 
 export class AuthController {
   static async register(
@@ -20,7 +18,7 @@ export class AuthController {
 
       const validatedData = userSchema.parse(data);
 
-      const user = await UserService.register(validatedData, next);
+      await UserService.register(validatedData);
 
       res.status(201).json({
         status: "success",
@@ -43,8 +41,12 @@ export class AuthController {
         .parse(data);
 
       const authUser = await UserService.loginAuth(validatedData);
+      if (!authUser) {
+        // Defensive: loginAuth currently throws on invalid credentials,
+        // but check anyway to avoid runtime destructuring errors.
+        throw new CustomError("Invalid credentials", 401);
+      }
       const { accessToken, refreshToken, user } = authUser;
-      if (!authUser) return;
 
       res.status(200).json({
         status: "success",
@@ -60,7 +62,6 @@ export class AuthController {
   static async refreshToken(req: Request, res: Response, next: NextFunction) {
     try {
       const token = req.body.refreshToken;
-      console.log(token);
       const newTokens = await UserService.refreshToken(token);
       res.status(200).json({
         status: "success",

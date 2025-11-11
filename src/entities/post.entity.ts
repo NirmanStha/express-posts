@@ -6,18 +6,22 @@ import {
   CreateDateColumn,
   ManyToOne,
   OneToMany,
+  Index,
 } from "typeorm";
 import { User } from "./user.entity";
 import { Comment } from "./comment.entity";
 @Entity()
+@Index(["createdAt"]) // Index for sorting by creation date
+@Index(["updatedAt"]) // Index for sorting by update date
+@Index(["user"]) // Index for user's posts queries
 export class Post {
   @PrimaryGeneratedColumn()
   id!: string;
 
-  @Column()
+  @Column({ length: 255 })
   title!: string;
 
-  @Column()
+  @Column({ type: "text" })
   content!: string;
 
   @Column({ type: "simple-array" })
